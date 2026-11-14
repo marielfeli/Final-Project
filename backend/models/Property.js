@@ -23,6 +23,10 @@ const propertySchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    photos: {
+      type: [String],
+      default: [],
+    },
     description: {
       type: String,
       required: true,

@@ -2,8 +2,9 @@
 const express = require("express");
 const router = express.Router();
 const Property = require("../models/Property");
+const { protect, ownerOnly } = require("../middleware/authMiddleware");
 
-// GET all properties
+// GET all properties (PUBLIC)
 router.get("/", async (req, res) => {
   try {
     const properties = await Property.find();
@@ -13,7 +14,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET one property
+// GET one property (PUBLIC)
 router.get("/:id", async (req, res) => {
   try {
     const property = await Property.findById(req.params.id);
@@ -28,27 +29,77 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// ADD a property
-router.post("/", async (req, res) => {
-  try {
-    const property = new Property(req.body);
-    const savedProperty = await property.save();
 
+// ADD a property (OWNER ONLY)
+router.post("/", protect, ownerOnly, async (req, res) => {
+  try {
+    const property = new Property({
+      ...req.body,
+      image: req.body.image,
+      photos: Array.isArray(req.body.photos)
+        ? req.body.photos
+        : [req.body.image],
+      ownerName: req.user.name,
+      ownerEmail: req.user.email,
+    });
+
+    const savedProperty = await property.save();
     res.status(201).json(savedProperty);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 });
 
-// DELETE a property
-router.delete("/:id", async (req, res) => {
+// UPDATE a property (OWNER ONLY)
+router.put("/:id", protect, ownerOnly, async (req, res) => {
   try {
-    const deletedProperty = await Property.findByIdAndDelete(
-      req.params.id
+    const updatedProperty = await Property.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        ownerEmail: req.user.email,
+      },
+      {
+        ...req.body,
+        image: req.body.image,
+        photos: Array.isArray(req.body.photos)
+          ? req.body.photos
+          : [req.body.image],
+        ownerName: req.user.name,
+        ownerEmail: req.user.email,
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
     );
 
+    if (!updatedProperty) {
+      return res.status(404).json({
+        message: "Property not found or you do not own this property.",
+      });
+    }
+
+    res.json({
+      message: "Property updated successfully",
+      property: updatedProperty,
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// DELETE a property (OWNER ONLY)
+router.delete("/:id", protect, ownerOnly, async (req, res) => {
+  try {
+    const deletedProperty = await Property.findOneAndDelete({
+      _id: req.params.id,
+      ownerEmail: req.user.email,
+    });
+
     if (!deletedProperty) {
-      return res.status(404).json({ message: "Property not found" });
+      return res.status(404).json({
+        message: "Property not found or you do not own this property.",
+      });
     }
 
     res.json({ message: "Property deleted successfully" });

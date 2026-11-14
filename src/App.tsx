@@ -5,6 +5,7 @@ import './App.css';
 
 const API_URL = 'http://localhost:5000/api/properties';
 const AUTH_URL = 'http://localhost:5000/api/auth';
+const INQUIRY_URL = 'http://localhost:5000/api/inquiries';
 
 type Page =
   | 'home'
@@ -12,7 +13,8 @@ type Page =
   | 'register'
   | 'details'
   | 'favorites'
-  | 'owner';
+  | 'owner'
+  | 'tenant';
 
 type Property = {
   _id: string;
@@ -32,6 +34,20 @@ type User = {
   id: string;
   name: string;
   email: string;
+  role: 'tenant' | 'owner' | 'admin';
+};
+
+type Inquiry = {
+  _id: string;
+  propertyId: string;
+  propertyName: string;
+  ownerName?: string;
+  ownerEmail?: string;
+  tenantName: string;
+  tenantEmail: string;
+  message: string;
+  status: string;
+  createdAt: string;
 };
 
 function App() {
@@ -43,11 +59,19 @@ function App() {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [showContactForm, setShowContactForm] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingProperty, setEditingProperty] =
+    useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [tenantInquiries, setTenantInquiries] = useState<Inquiry[]>([]);
+  const [inquiryLoading, setInquiryLoading] = useState(false);
+  const [additionalImageUrls, setAdditionalImageUrls] =
+    useState<string[]>(['']);
 
-  // GET PROPERTIES FROM MONGODB
+  // GET PROPERTIES
   const fetchProperties = async () => {
     try {
       setLoading(true);
@@ -63,9 +87,7 @@ function App() {
       setProperties(data);
     } catch (err) {
       console.error('Error loading properties:', err);
-      setError(
-        'Unable to connect to the server. Please check your backend.'
-      );
+      setError('Unable to connect to the server. Please check your backend.');
     } finally {
       setLoading(false);
     }
@@ -98,10 +120,8 @@ function App() {
     setPage('details');
   };
 
-  // REGISTER FUNCTION
-  const handleRegister = async (
-    e: FormEvent<HTMLFormElement>
-  ) => {
+  // REGISTER
+  const handleRegister = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const form = e.currentTarget;
@@ -110,9 +130,8 @@ function App() {
     const name = String(formData.get('name'));
     const email = String(formData.get('email'));
     const password = String(formData.get('password'));
-    const confirmPassword = String(
-      formData.get('confirmPassword')
-    );
+    const confirmPassword = String(formData.get('confirmPassword'));
+    const role = String(formData.get('role'));
 
     if (password.length < 6) {
       alert('Password must be at least 6 characters.');
@@ -130,40 +149,28 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-        }),
+        body: JSON.stringify({ name, email, password, role }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message || 'Registration failed.'
-        );
+        throw new Error(data.message || 'Registration failed.');
       }
 
       form.reset();
-
       alert('Registration successful! You can now login.');
       setPage('login');
     } catch (err) {
       console.error('Registration error:', err);
-
       alert(
-        err instanceof Error
-          ? err.message
-          : 'Unable to register. Please try again.'
+        err instanceof Error ? err.message : 'Unable to register.'
       );
     }
   };
 
-  // LOGIN FUNCTION
-  const handleLogin = async (
-    e: FormEvent<HTMLFormElement>
-  ) => {
+  // LOGIN
+  const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const form = e.currentTarget;
@@ -178,10 +185,7 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
@@ -191,30 +195,191 @@ function App() {
       }
 
       setLoggedInUser(data.user);
-
+      setAuthToken(data.token);
+      setTenantInquiries([]);
+      setInquiries([]);
       form.reset();
 
       alert(`Welcome to StayFinder, ${data.user.name}!`);
       setPage('home');
     } catch (err) {
       console.error('Login error:', err);
-
-      alert(
-        err instanceof Error
-          ? err.message
-          : 'Unable to login. Please try again.'
-      );
+      alert(err instanceof Error ? err.message : 'Unable to login.');
     }
   };
 
-  // LOGOUT FUNCTION
+  // LOGOUT
   const handleLogout = () => {
     setLoggedInUser(null);
+    setAuthToken(null);
+    setInquiries([]);
+    setTenantInquiries([]);
     setPage('home');
     alert('You have logged out successfully.');
   };
 
-  // ADD PROPERTY TO MONGODB
+  // GET TENANT INQUIRIES
+  const fetchTenantInquiries = async () => {
+    if (!authToken || loggedInUser?.role !== 'tenant') return;
+
+    try {
+      setInquiryLoading(true);
+
+      const response = await fetch(
+        `${INQUIRY_URL}/tenant-inquiries`,
+        {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to load your inquiries.');
+      }
+
+      setTenantInquiries(data);
+    } catch (err) {
+      console.error('Error loading tenant inquiries:', err);
+      setTenantInquiries([]);
+    } finally {
+      setInquiryLoading(false);
+    }
+  };
+
+  // GET OWNER INQUIRIES
+  const fetchInquiries = async () => {
+    if (!authToken || loggedInUser?.role !== 'owner') return;
+
+    try {
+      setInquiryLoading(true);
+
+      const response = await fetch(
+        `${INQUIRY_URL}/my-inquiries`,
+        {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to load inquiries.');
+      }
+
+      setInquiries(data);
+    } catch (err) {
+      console.error('Error loading inquiries:', err);
+      setInquiries([]);
+    } finally {
+      setInquiryLoading(false);
+    }
+  };
+
+  // LOAD INQUIRIES WHEN OPENING DASHBOARDS
+  useEffect(() => {
+    if (page === 'owner' && loggedInUser?.role === 'owner') {
+      fetchInquiries();
+    }
+
+    if (page === 'tenant' && loggedInUser?.role === 'tenant') {
+      fetchTenantInquiries();
+    }
+  }, [page, loggedInUser, authToken]);
+
+  // SEND TENANT INQUIRY
+  const handleSendInquiry = async (
+    e: FormEvent<HTMLFormElement>
+  ) => {
+    e.preventDefault();
+
+    if (!loggedInUser || !authToken) {
+      alert('Please login as a tenant before sending an inquiry.');
+      setPage('login');
+      return;
+    }
+
+    if (loggedInUser.role !== 'tenant') {
+      alert('Only tenant accounts can send inquiries.');
+      return;
+    }
+
+    if (!selectedProperty) return;
+
+    const formData = new FormData(e.currentTarget);
+    const message = String(formData.get('message') || '').trim();
+
+    if (!message) {
+      alert('Please write your message.');
+      return;
+    }
+
+    try {
+      const response = await fetch(INQUIRY_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          propertyId: selectedProperty._id,
+          message,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to send inquiry.');
+      }
+
+      alert('Your inquiry was sent successfully!');
+      setShowContactForm(false);
+
+      await fetchTenantInquiries();
+    } catch (err) {
+      console.error('Error sending inquiry:', err);
+      alert(
+        err instanceof Error ? err.message : 'Unable to send inquiry.'
+      );
+    }
+  };
+
+  // MARK INQUIRY AS READ
+  const handleMarkAsRead = async (inquiryId: string) => {
+    try {
+      const response = await fetch(
+        `${INQUIRY_URL}/${inquiryId}/read`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update inquiry.');
+      }
+
+      await fetchInquiries();
+      alert('Inquiry marked as read!');
+    } catch (err) {
+      alert(
+        err instanceof Error
+          ? err.message
+          : 'Something went wrong.'
+      );
+    }
+  };
+
+  // ADD PROPERTY
   const handleAddProperty = async (
     e: FormEvent<HTMLFormElement>
   ) => {
@@ -222,8 +387,14 @@ function App() {
 
     const form = e.currentTarget;
     const formData = new FormData(form);
-
     const image = String(formData.get('image'));
+
+    const photos = [
+      image,
+      ...additionalImageUrls
+        .map((url) => url.trim())
+        .filter((url) => url !== ''),
+    ];
 
     const newProperty = {
       name: String(formData.get('name')),
@@ -231,7 +402,7 @@ function App() {
       price: Number(formData.get('price')),
       type: String(formData.get('type')),
       image,
-      photos: [image, image, image],
+      photos,
       description: String(formData.get('description')),
       amenities: String(formData.get('amenities'))
         .split(',')
@@ -246,6 +417,7 @@ function App() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify(newProperty),
       });
@@ -253,29 +425,88 @@ function App() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message || 'Failed to add property.'
-        );
+        throw new Error(data.message || 'Failed to add property.');
       }
 
       await fetchProperties();
-
       form.reset();
+      setAdditionalImageUrls(['']);
       setShowAddForm(false);
 
       alert('Property added successfully!');
     } catch (err) {
       console.error('Error adding property:', err);
-
-      alert(
-        err instanceof Error
-          ? err.message
-          : 'Unable to add property. Please try again.'
-      );
+      alert(err instanceof Error ? err.message : 'Unable to add property.');
     }
   };
 
-  // DELETE PROPERTY FROM MONGODB
+  // UPDATE PROPERTY
+  const handleUpdateProperty = async (
+    e: FormEvent<HTMLFormElement>
+  ) => {
+    e.preventDefault();
+
+    if (!editingProperty) return;
+
+    const formData = new FormData(e.currentTarget);
+    const image = String(formData.get('image'));
+
+    const photos = [
+      image,
+      ...additionalImageUrls
+        .map((url) => url.trim())
+        .filter((url) => url !== ''),
+    ];
+
+    const updatedProperty = {
+      name: String(formData.get('name')),
+      location: String(formData.get('location')),
+      price: Number(formData.get('price')),
+      type: String(formData.get('type')),
+      image,
+      photos,
+      description: String(formData.get('description')),
+      amenities: String(formData.get('amenities'))
+        .split(',')
+        .map((item) => item.trim())
+        .filter((item) => item !== ''),
+      ownerName: String(formData.get('ownerName')),
+      ownerEmail: String(formData.get('ownerEmail')),
+    };
+
+    try {
+      const response = await fetch(
+        `${API_URL}/${editingProperty._id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(updatedProperty),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update property.');
+      }
+
+      await fetchProperties();
+
+      setEditingProperty(null);
+      setAdditionalImageUrls(['']);
+      setShowAddForm(false);
+
+      alert('Property updated successfully!');
+    } catch (err) {
+      console.error('Error updating property:', err);
+      alert(err instanceof Error ? err.message : 'Unable to update property.');
+    }
+  };
+
+  // DELETE PROPERTY
   const deleteProperty = async (id: string) => {
     const confirmed = window.confirm(
       'Are you sure you want to delete this property?'
@@ -286,14 +517,15 @@ function App() {
     try {
       const response = await fetch(`${API_URL}/${id}`, {
         method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message || 'Failed to delete property.'
-        );
+        throw new Error(data.message || 'Failed to delete property.');
       }
 
       setFavorites((current) =>
@@ -301,16 +533,10 @@ function App() {
       );
 
       await fetchProperties();
-
       alert('Property deleted successfully!');
     } catch (err) {
       console.error('Error deleting property:', err);
-
-      alert(
-        err instanceof Error
-          ? err.message
-          : 'Unable to delete property.'
-      );
+      alert(err instanceof Error ? err.message : 'Unable to delete property.');
     }
   };
 
@@ -350,10 +576,7 @@ function App() {
           </button>
         </p>
 
-        <button
-          className="back-btn"
-          onClick={() => setPage('home')}
-        >
+        <button className="back-btn" onClick={() => setPage('home')}>
           ← Back to Home
         </button>
       </div>
@@ -402,6 +625,12 @@ function App() {
             required
           />
 
+          <label>Account Type</label>
+          <select name="role" required defaultValue="tenant">
+            <option value="tenant">Tenant</option>
+            <option value="owner">Property Owner</option>
+          </select>
+
           <button type="submit" className="auth-btn">
             Create Account
           </button>
@@ -409,15 +638,10 @@ function App() {
 
         <p className="auth-switch">
           Already have an account?
-          <button onClick={() => setPage('login')}>
-            Login
-          </button>
+          <button onClick={() => setPage('login')}>Login</button>
         </p>
 
-        <button
-          className="back-btn"
-          onClick={() => setPage('home')}
-        >
+        <button className="back-btn" onClick={() => setPage('home')}>
           ← Back to Home
         </button>
       </div>
@@ -430,20 +654,22 @@ function App() {
       return (
         <div className="details-container">
           <h2>Property not found.</h2>
-
-          <button
-            className="back-btn"
-            onClick={() => setPage('home')}
-          >
+          <button className="back-btn" onClick={() => setPage('home')}>
             ← Back to Home
           </button>
         </div>
       );
     }
 
-    const isFavorite = favorites.includes(
-      selectedProperty._id
-    );
+    const isFavorite = favorites.includes(selectedProperty._id);
+
+    const propertyPhotos = [
+      ...new Set(
+        selectedProperty.photos?.length
+          ? selectedProperty.photos
+          : [selectedProperty.image]
+      ),
+    ];
 
     return (
       <div className="details-container">
@@ -462,30 +688,20 @@ function App() {
             <span className="property-type">
               {selectedProperty.type}
             </span>
-
             <h1>{selectedProperty.name}</h1>
             <p>📍 {selectedProperty.location}</p>
           </div>
 
           <button
-            className={`favorite-btn ${
-              isFavorite ? 'active' : ''
-            }`}
-            onClick={() =>
-              toggleFavorite(selectedProperty._id)
-            }
+            className={`favorite-btn ${isFavorite ? 'active' : ''}`}
+            onClick={() => toggleFavorite(selectedProperty._id)}
           >
-            {isFavorite
-              ? '♥ Saved to Favorites'
-              : '♡ Add to Favorites'}
+            {isFavorite ? '♥ Saved to Favorites' : '♡ Add to Favorites'}
           </button>
         </div>
 
         <div className="details-gallery">
-          {(selectedProperty.photos?.length
-            ? selectedProperty.photos
-            : [selectedProperty.image]
-          ).map((photo, index) => (
+          {propertyPhotos.map((photo, index) => (
             <img
               src={photo}
               alt={`${selectedProperty.name} photo ${index + 1}`}
@@ -500,23 +716,16 @@ function App() {
             <p>{selectedProperty.description}</p>
 
             <h2>Amenities</h2>
-
             <div className="amenities-list">
-              {selectedProperty.amenities?.map(
-                (amenity) => (
-                  <span key={amenity}>✓ {amenity}</span>
-                )
-              )}
+              {selectedProperty.amenities?.map((amenity) => (
+                <span key={amenity}>✓ {amenity}</span>
+              ))}
             </div>
           </div>
 
           <div className="details-sidebar">
             <p>Monthly Rental Price</p>
-
-            <h2>
-              ₱{selectedProperty.price.toLocaleString()}
-            </h2>
-
+            <h2>₱{selectedProperty.price.toLocaleString()}</h2>
             <span>/ month</span>
 
             <div className="owner-info">
@@ -534,54 +743,39 @@ function App() {
             </button>
 
             <button
-              className={`favorite-btn ${
-                isFavorite ? 'active' : ''
-              }`}
-              onClick={() =>
-                toggleFavorite(selectedProperty._id)
-              }
+              className={`favorite-btn ${isFavorite ? 'active' : ''}`}
+              onClick={() => toggleFavorite(selectedProperty._id)}
             >
-              {isFavorite
-                ? '♥ Remove Favorite'
-                : '♡ Add to Favorites'}
+              {isFavorite ? '♥ Remove Favorite' : '♡ Add to Favorites'}
             </button>
 
             {showContactForm && (
               <div className="contact-form">
                 <h3>Contact Property Owner</h3>
+                <p>Send an inquiry about {selectedProperty.name}.</p>
 
-                <p>
-                  Send an inquiry about{' '}
-                  {selectedProperty.name}.
-                </p>
-
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-
-                    alert(
-                      'Message sending will be connected to the backend later.'
-                    );
-
-                    setShowContactForm(false);
-                  }}
-                >
+                <form onSubmit={handleSendInquiry}>
                   <label>Your Name</label>
                   <input
                     type="text"
-                    placeholder="Enter your name"
+                    value={loggedInUser?.name || ''}
+                    placeholder="Login as a tenant first"
+                    readOnly
                     required
                   />
 
                   <label>Email Address</label>
                   <input
                     type="email"
-                    placeholder="Enter your email"
+                    value={loggedInUser?.email || ''}
+                    placeholder="Login as a tenant first"
+                    readOnly
                     required
                   />
 
                   <label>Your Message</label>
                   <textarea
+                    name="message"
                     placeholder="Write your message..."
                     rows={4}
                     required
@@ -590,16 +784,25 @@ function App() {
                   <button
                     type="submit"
                     className="auth-btn"
+                    disabled={
+                      !loggedInUser || loggedInUser.role !== 'tenant'
+                    }
                   >
                     Send Message
                   </button>
 
+                  {!loggedInUser && (
+                    <p>Please login with a tenant account to send an inquiry.</p>
+                  )}
+
+                  {loggedInUser && loggedInUser.role !== 'tenant' && (
+                    <p>Only tenant accounts can send inquiries.</p>
+                  )}
+
                   <button
                     type="button"
                     className="back-btn"
-                    onClick={() =>
-                      setShowContactForm(false)
-                    }
+                    onClick={() => setShowContactForm(false)}
                   >
                     Cancel
                   </button>
@@ -614,17 +817,13 @@ function App() {
 
   // FAVORITES PAGE
   const FavoritesPage = () => {
-    const favoriteProperties = properties.filter(
-      (property) =>
-        favorites.includes(property._id)
+    const favoriteProperties = properties.filter((property) =>
+      favorites.includes(property._id)
     );
 
     return (
       <div className="properties favorites-page">
-        <button
-          className="back-btn"
-          onClick={() => setPage('home')}
-        >
+        <button className="back-btn" onClick={() => setPage('home')}>
           ← Back to Home
         </button>
 
@@ -633,47 +832,31 @@ function App() {
             <p className="tagline">YOUR SAVED PLACES</p>
             <h2>My Favorites ❤️</h2>
           </div>
-
           <p>Your favorite rooms and apartments.</p>
         </div>
 
         {favoriteProperties.length > 0 ? (
           <div className="property-grid">
             {favoriteProperties.map((property) => (
-              <div
-                className="property-card"
-                key={property._id}
-              >
+              <div className="property-card" key={property._id}>
                 <div className="property-image-wrapper">
-                  <img
-                    src={property.image}
-                    alt={property.name}
-                  />
-
+                  <img src={property.image} alt={property.name} />
                   <button
                     className="card-favorite active"
-                    onClick={() =>
-                      toggleFavorite(property._id)
-                    }
-                    aria-label="Remove from favorites"
+                    onClick={() => toggleFavorite(property._id)}
                   >
                     ♥
                   </button>
                 </div>
 
                 <div className="property-info">
-                  <span className="property-type">
-                    {property.type}
-                  </span>
-
+                  <span className="property-type">{property.type}</span>
                   <h3>{property.name}</h3>
                   <p>📍 {property.location}</p>
-
                   <h3 className="price">
                     ₱{property.price.toLocaleString()}
                     <small> / month</small>
                   </h3>
-
                   <button
                     className="view-btn"
                     onClick={() => openDetails(property)}
@@ -688,7 +871,78 @@ function App() {
           <div className="empty-favorites">
             <h3>No Favorites Yet</h3>
             <p>You haven't saved any properties.</p>
+            <button className="view-btn" onClick={() => setPage('home')}>
+              Explore Properties
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
+  // TENANT DASHBOARD
+  const TenantDashboardPage = () => (
+    <div className="owner-dashboard">
+      <div className="dashboard-header">
+        <div>
+          <p className="tagline">TENANT ACCOUNT</p>
+          <h1>Tenant Dashboard</h1>
+          <p>Welcome, {loggedInUser?.name}!</p>
+          <p>Track the inquiries you sent to property owners.</p>
+        </div>
+      </div>
+
+      <div className="dashboard-stats">
+        <div className="stat-card">
+          <h3>{tenantInquiries.length}</h3>
+          <p>Total Inquiries</p>
+        </div>
+
+        <div className="stat-card">
+          <h3>
+            {tenantInquiries.filter(
+              (inquiry) => inquiry.status === 'New'
+            ).length}
+          </h3>
+          <p>Pending Inquiries</p>
+        </div>
+
+        <div className="stat-card">
+          <h3>
+            {tenantInquiries.filter(
+              (inquiry) => inquiry.status === 'Read'
+            ).length}
+          </h3>
+          <p>Read Inquiries</p>
+        </div>
+      </div>
+
+      <div className="dashboard-listings">
+        <h2>My Sent Inquiries</h2>
+
+        {inquiryLoading ? (
+          <p>Loading your inquiries...</p>
+        ) : tenantInquiries.length > 0 ? (
+          tenantInquiries.map((inquiry) => (
+            <div className="dashboard-property" key={inquiry._id}>
+              <div>
+                <h3>{inquiry.propertyName}</h3>
+                <p>Owner: {inquiry.ownerName || 'Property Owner'}</p>
+                <p>Message: {inquiry.message}</p>
+                <p>
+                  Status:{' '}
+                  <strong>{inquiry.status}</strong>
+                </p>
+                <small>
+                  Sent: {new Date(inquiry.createdAt).toLocaleString()}
+                </small>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="empty-favorites">
+            <h3>No Inquiries Yet</h3>
+            <p>You haven't sent any inquiries to property owners.</p>
             <button
               className="view-btn"
               onClick={() => setPage('home')}
@@ -697,9 +951,20 @@ function App() {
             </button>
           </div>
         )}
+
+        <button
+          className="view-btn"
+          onClick={fetchTenantInquiries}
+        >
+          Refresh My Inquiries
+        </button>
       </div>
-    );
-  };
+
+      <button className="back-btn" onClick={() => setPage('home')}>
+        ← Back to Home
+      </button>
+    </div>
+  );
 
   // OWNER DASHBOARD
   const OwnerDashboardPage = () => (
@@ -713,7 +978,17 @@ function App() {
 
         <button
           className="add-property-btn"
-          onClick={() => setShowAddForm(!showAddForm)}
+          onClick={() => {
+            if (showAddForm) {
+              setShowAddForm(false);
+              setEditingProperty(null);
+              setAdditionalImageUrls(['']);
+            } else {
+              setEditingProperty(null);
+              setAdditionalImageUrls(['']);
+              setShowAddForm(true);
+            }
+          }}
         >
           {showAddForm ? 'Cancel' : '+ Add Property'}
         </button>
@@ -731,16 +1006,74 @@ function App() {
         </div>
       </div>
 
+      <div className="dashboard-listings">
+        <h2>
+          Tenant Inquiries (
+          {inquiries.filter((inquiry) => inquiry.status !== 'Read').length}
+          {' '}unread)
+        </h2>
+
+        {inquiryLoading ? (
+          <p>Loading inquiries...</p>
+        ) : inquiries.length > 0 ? (
+          inquiries.map((inquiry) => (
+            <div className="dashboard-property" key={inquiry._id}>
+              <div>
+                <h3>{inquiry.propertyName}</h3>
+                <p>Tenant: {inquiry.tenantName}</p>
+                <p>Email: {inquiry.tenantEmail}</p>
+                <p>Message: {inquiry.message}</p>
+                <p>
+                  Status: <strong>{inquiry.status}</strong>
+                </p>
+
+                <small>
+                  {new Date(inquiry.createdAt).toLocaleString()}
+                </small>
+
+                {inquiry.status !== 'Read' && (
+                  <button
+                    className="view-btn"
+                    onClick={() => handleMarkAsRead(inquiry._id)}
+                  >
+                    Mark as Read
+                  </button>
+                )}
+
+                {inquiry.status === 'Read' && (
+                  <p>✓ This inquiry has been read.</p>
+                )}
+              </div>
+            </div>
+          ))
+        ) : (
+          <p>No tenant inquiries yet.</p>
+        )}
+
+        <button className="view-btn" onClick={fetchInquiries}>
+          Refresh Inquiries
+        </button>
+      </div>
+
       {showAddForm && (
         <div className="add-property-form">
-          <h2>Add New Property</h2>
+          <h2>
+            {editingProperty ? 'Edit Property' : 'Add New Property'}
+          </h2>
 
-          <form onSubmit={handleAddProperty}>
+          <form
+            onSubmit={
+              editingProperty
+                ? handleUpdateProperty
+                : handleAddProperty
+            }
+          >
             <label>Property Name</label>
             <input
               name="name"
               type="text"
               placeholder="Enter property name"
+              defaultValue={editingProperty?.name || ''}
               required
             />
 
@@ -749,6 +1082,7 @@ function App() {
               name="location"
               type="text"
               placeholder="Enter city or location"
+              defaultValue={editingProperty?.location || ''}
               required
             />
 
@@ -758,11 +1092,16 @@ function App() {
               type="number"
               min="1"
               placeholder="Enter monthly price"
+              defaultValue={editingProperty?.price || ''}
               required
             />
 
             <label>Property Type</label>
-            <select name="type" required>
+            <select
+              name="type"
+              required
+              defaultValue={editingProperty?.type || ''}
+            >
               <option value="">Select property type</option>
               <option value="Apartment">Apartment</option>
               <option value="Studio">Studio</option>
@@ -770,19 +1109,60 @@ function App() {
               <option value="House">House</option>
             </select>
 
-            <label>Property Image URL</label>
+            <label>Main Property Image URL</label>
             <input
               name="image"
               type="url"
-              placeholder="Paste an image URL"
+              placeholder="Paste main image URL"
+              defaultValue={editingProperty?.image || ''}
               required
             />
+
+            <label>Additional Property Image URLs</label>
+
+            {additionalImageUrls.map((url, index) => (
+              <div className="additional-image-input" key={index}>
+                <input
+                  type="url"
+                  placeholder={`Paste additional image URL ${index + 1}`}
+                  value={url}
+                  onChange={(e) => {
+                    const updatedUrls = [...additionalImageUrls];
+                    updatedUrls[index] = e.target.value;
+                    setAdditionalImageUrls(updatedUrls);
+                  }}
+                />
+
+                <button
+                  type="button"
+                  className="delete-property-btn"
+                  onClick={() => {
+                    setAdditionalImageUrls((current) =>
+                      current.filter((_, i) => i !== index)
+                    );
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              className="view-btn"
+              onClick={() =>
+                setAdditionalImageUrls((current) => [...current, ''])
+              }
+            >
+              + Add Another URL
+            </button>
 
             <label>Property Description</label>
             <textarea
               name="description"
               rows={4}
               placeholder="Describe your property"
+              defaultValue={editingProperty?.description || ''}
               required
             />
 
@@ -791,6 +1171,7 @@ function App() {
               name="amenities"
               type="text"
               placeholder="Wi-Fi, Kitchen, Parking"
+              defaultValue={editingProperty?.amenities.join(', ') || ''}
               required
             />
 
@@ -799,6 +1180,7 @@ function App() {
               name="ownerName"
               type="text"
               placeholder="Enter owner name"
+              defaultValue={editingProperty?.ownerName || ''}
               required
             />
 
@@ -807,15 +1189,27 @@ function App() {
               name="ownerEmail"
               type="email"
               placeholder="Enter owner email"
+              defaultValue={editingProperty?.ownerEmail || ''}
               required
             />
 
-            <button
-              type="submit"
-              className="auth-btn"
-            >
-              Save Property
+            <button type="submit" className="auth-btn">
+              {editingProperty ? 'Save Changes' : 'Save Property'}
             </button>
+
+            {editingProperty && (
+              <button
+                type="button"
+                className="back-btn"
+                onClick={() => {
+                  setEditingProperty(null);
+                  setAdditionalImageUrls(['']);
+                  setShowAddForm(false);
+                }}
+              >
+                Cancel Edit
+              </button>
+            )}
           </form>
         </div>
       )}
@@ -825,21 +1219,13 @@ function App() {
 
         {properties.length > 0 ? (
           properties.map((property) => (
-            <div
-              className="dashboard-property"
-              key={property._id}
-            >
-              <img
-                src={property.image}
-                alt={property.name}
-              />
+            <div className="dashboard-property" key={property._id}>
+              <img src={property.image} alt={property.name} />
 
               <div>
                 <h3>{property.name}</h3>
                 <p>📍 {property.location}</p>
-                <p>
-                  ₱{property.price.toLocaleString()} / month
-                </p>
+                <p>₱{property.price.toLocaleString()} / month</p>
               </div>
 
               <button
@@ -847,6 +1233,25 @@ function App() {
                 onClick={() => openDetails(property)}
               >
                 View Details
+              </button>
+
+              <button
+                className="view-btn"
+                onClick={() => {
+                  setEditingProperty(property);
+
+                  const extraPhotos = (property.photos || []).filter(
+                    (photo) => photo !== property.image
+                  );
+
+                  setAdditionalImageUrls(
+                    extraPhotos.length > 0 ? extraPhotos : ['']
+                  );
+
+                  setShowAddForm(true);
+                }}
+              >
+                Edit
               </button>
 
               <button
@@ -858,27 +1263,51 @@ function App() {
             </div>
           ))
         ) : (
-          <p>
-            No properties listed yet. Click Add Property to create one.
-          </p>
+          <p>No properties listed yet. Click Add Property to create one.</p>
         )}
       </div>
 
-      <button
-        className="back-btn"
-        onClick={() => setPage('home')}
-      >
+      <button className="back-btn" onClick={() => setPage('home')}>
         ← Back to Home
       </button>
     </div>
   );
 
-  // SELECT PAGE
+  // PAGE NAVIGATION
   if (page === 'login') return <LoginPage />;
   if (page === 'register') return <RegisterPage />;
   if (page === 'details') return <PropertyDetailsPage />;
   if (page === 'favorites') return <FavoritesPage />;
-  if (page === 'owner') return <OwnerDashboardPage />;
+
+  if (page === 'owner') {
+    if (loggedInUser?.role !== 'owner') {
+      return (
+        <div className="app">
+          <p>Access denied. Owner account required.</p>
+          <button className="back-btn" onClick={() => setPage('home')}>
+            Back to Home
+          </button>
+        </div>
+      );
+    }
+
+    return <OwnerDashboardPage />;
+  }
+
+  if (page === 'tenant') {
+    if (loggedInUser?.role !== 'tenant') {
+      return (
+        <div className="app">
+          <p>Access denied. Tenant account required.</p>
+          <button className="back-btn" onClick={() => setPage('home')}>
+            Back to Home
+          </button>
+        </div>
+      );
+    }
+
+    return <TenantDashboardPage />;
+  }
 
   // HOME PAGE
   return (
@@ -900,32 +1329,37 @@ function App() {
             ♥ Favorites ({favorites.length})
           </button>
 
-          <button
-            className="favorites-nav-btn"
-            onClick={() => {
-              setShowAddForm(false);
-              setPage('owner');
-            }}
-          >
-            Owner Dashboard
-          </button>
+          {loggedInUser?.role === 'owner' && (
+            <button
+              className="favorites-nav-btn"
+              onClick={() => {
+                setShowAddForm(false);
+                setPage('owner');
+              }}
+            >
+              Owner Dashboard
+            </button>
+          )}
+
+          {loggedInUser?.role === 'tenant' && (
+            <button
+              className="favorites-nav-btn"
+              onClick={() => setPage('tenant')}
+            >
+              Tenant Dashboard
+            </button>
+          )}
         </nav>
 
         {loggedInUser ? (
           <div>
             <span>Welcome, {loggedInUser.name}!</span>
-            <button
-              className="login-btn"
-              onClick={handleLogout}
-            >
+            <button className="login-btn" onClick={handleLogout}>
               Logout
             </button>
           </div>
         ) : (
-          <button
-            className="login-btn"
-            onClick={() => setPage('login')}
-          >
+          <button className="login-btn" onClick={() => setPage('login')}>
             Login
           </button>
         )}
@@ -953,7 +1387,6 @@ function App() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-
             <button>Search</button>
           </div>
         </div>
@@ -965,7 +1398,6 @@ function App() {
             <p className="tagline">EXPLORE PLACES</p>
             <h2>Featured Properties</h2>
           </div>
-
           <p>Find your next home with StayFinder.</p>
         </div>
 
@@ -974,11 +1406,7 @@ function App() {
         ) : error ? (
           <div>
             <p className="no-results">{error}</p>
-
-            <button
-              className="view-btn"
-              onClick={fetchProperties}
-            >
+            <button className="view-btn" onClick={fetchProperties}>
               Try Again
             </button>
           </div>
@@ -986,38 +1414,23 @@ function App() {
           <>
             <div className="property-grid">
               {filteredProperties.map((property) => (
-                <div
-                  className="property-card"
-                  key={property._id}
-                >
+                <div className="property-card" key={property._id}>
                   <div className="property-image-wrapper">
-                    <img
-                      src={property.image}
-                      alt={property.name}
-                    />
+                    <img src={property.image} alt={property.name} />
 
                     <button
                       className={`card-favorite ${
-                        favorites.includes(property._id)
-                          ? 'active'
-                          : ''
+                        favorites.includes(property._id) ? 'active' : ''
                       }`}
-                      onClick={() =>
-                        toggleFavorite(property._id)
-                      }
+                      onClick={() => toggleFavorite(property._id)}
                       aria-label="Toggle favorite"
                     >
-                      {favorites.includes(property._id)
-                        ? '♥'
-                        : '♡'}
+                      {favorites.includes(property._id) ? '♥' : '♡'}
                     </button>
                   </div>
 
                   <div className="property-info">
-                    <span className="property-type">
-                      {property.type}
-                    </span>
-
+                    <span className="property-type">{property.type}</span>
                     <h3>{property.name}</h3>
                     <p>📍 {property.location}</p>
 

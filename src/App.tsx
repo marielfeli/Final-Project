@@ -64,6 +64,34 @@ function App() {
     useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+    const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error';
+  } | null>(null);
+
+  // SHOW TOAST NOTIFICATION
+  const showToast = (
+    message: string,
+    type: 'success' | 'error' = 'success'
+  ) => {
+    setToast({ message, type });
+
+    setTimeout(() => {
+      setToast(null);
+    }, 3000);
+  };
+
+  // TOAST COMPONENT
+  const ToastMessage = () => {
+    if (!toast) return null;
+
+    return (
+      <div className={`toast-notification ${toast.type}`}>
+        <span>{toast.type === 'success' ? '✓' : '✕'}</span>
+        {toast.message}
+      </div>
+    );
+  };
 
   // RESTORE LOGIN SESSION
 const [loggedInUser, setLoggedInUser] = useState<User | null>(() => {
@@ -157,13 +185,13 @@ useEffect(() => {
   // TOGGLE FAVORITES USING MONGODB
 const toggleFavorite = async (id: string) => {
   if (!loggedInUser || !authToken) {
-    alert('Please login as a tenant to save favorites.');
+    showToast('Please login as a tenant to save favorites.','error');
     setPage('login');
     return;
   }
 
   if (loggedInUser.role !== 'tenant') {
-    alert('Only tenant accounts can save favorites.');
+    showToast('Only tenant accounts can save favorites.','error');
     return;
   }
 
@@ -192,11 +220,12 @@ const toggleFavorite = async (id: string) => {
   } catch (err) {
     console.error('Favorite error:', err);
 
-    alert(
-      err instanceof Error
-        ? err.message
-        : 'Unable to update favorites.'
-    );
+    showToast(
+  err instanceof Error
+    ? err.message
+    : 'Unable to update favorites.',
+  'error'
+);
   }
 };
 
@@ -221,12 +250,12 @@ const toggleFavorite = async (id: string) => {
     const role = String(formData.get('role'));
 
     if (password.length < 6) {
-      alert('Password must be at least 6 characters.');
+      showToast('Password must be at least 6 characters.','error');
       return;
     }
 
     if (password !== confirmPassword) {
-      alert('Passwords do not match!');
+      showToast('Passwords do not match!', 'error');
       return;
     }
 
@@ -246,12 +275,13 @@ const toggleFavorite = async (id: string) => {
       }
 
       form.reset();
-      alert('Registration successful! You can now login.');
+      showToast('Registration successful! You can now login.');
       setPage('login');
     } catch (err) {
       console.error('Registration error:', err);
-      alert(
-        err instanceof Error ? err.message : 'Unable to register.'
+      showToast(
+        err instanceof Error ? err.message : 'Unable to register.',
+        'error'
       );
     }
   };
@@ -289,11 +319,13 @@ const toggleFavorite = async (id: string) => {
       setInquiries([]);
       form.reset();
 
-      alert(`Welcome to StayFinder, ${data.user.name}!`);
+      showToast(`Welcome to StayFinder, ${data.user.name}!`);
       setPage('home');
     } catch (err) {
       console.error('Login error:', err);
-      alert(err instanceof Error ? err.message : 'Unable to login.');
+      showToast(err instanceof Error ? err.message : 'Unable to login.',
+          'error'
+      );
     }
   };
 
@@ -310,7 +342,7 @@ const handleLogout = () => {
   setFavorites([]);
   setPage('home');
 
-  alert('You have logged out successfully.');
+  showToast('You have logged out successfully.');
 };
   // GET TENANT INQUIRIES
   const fetchTenantInquiries = async () => {
@@ -392,13 +424,13 @@ const handleLogout = () => {
     e.preventDefault();
 
     if (!loggedInUser || !authToken) {
-      alert('Please login as a tenant before sending an inquiry.');
+      showToast('Please login as a tenant before sending an inquiry.', 'error');
       setPage('login');
       return;
     }
 
     if (loggedInUser.role !== 'tenant') {
-      alert('Only tenant accounts can send inquiries.');
+      showToast('Only tenant accounts can send inquiries.', 'error');
       return;
     }
 
@@ -408,7 +440,7 @@ const handleLogout = () => {
     const message = String(formData.get('message') || '').trim();
 
     if (!message) {
-      alert('Please write your message.');
+      showToast('Please write your message.', 'error');
       return;
     }
 
@@ -431,14 +463,15 @@ const handleLogout = () => {
         throw new Error(data.message || 'Failed to send inquiry.');
       }
 
-      alert('Your inquiry was sent successfully!');
+      showToast('Your inquiry was sent successfully!');
       setShowContactForm(false);
 
       await fetchTenantInquiries();
     } catch (err) {
       console.error('Error sending inquiry:', err);
-      alert(
-        err instanceof Error ? err.message : 'Unable to send inquiry.'
+      showToast(
+        err instanceof Error ? err.message : 'Unable to send inquiry.',
+        'error'
       );
     }
   };
@@ -463,12 +496,13 @@ const handleLogout = () => {
       }
 
       await fetchInquiries();
-      alert('Inquiry marked as read!');
+      showToast('Inquiry marked as read!');
     } catch (err) {
-      alert(
+      showToast(
         err instanceof Error
           ? err.message
-          : 'Something went wrong.'
+          : 'Something went wrong.',
+          'error'
       );
     }
   };
@@ -527,10 +561,10 @@ const handleLogout = () => {
       setAdditionalImageUrls(['']);
       setShowAddForm(false);
 
-      alert('Property added successfully!');
+      showToast('Property added successfully!');
     } catch (err) {
       console.error('Error adding property:', err);
-      alert(err instanceof Error ? err.message : 'Unable to add property.');
+      showToast(err instanceof Error ? err.message : 'Unable to add property.', 'error');
     }
   };
 
@@ -593,10 +627,10 @@ const handleLogout = () => {
       setAdditionalImageUrls(['']);
       setShowAddForm(false);
 
-      alert('Property updated successfully!');
+      showToast('Property updated successfully!');
     } catch (err) {
       console.error('Error updating property:', err);
-      alert(err instanceof Error ? err.message : 'Unable to update property.');
+      showToast(err instanceof Error ? err.message : 'Unable to update property.', 'error');
     }
   };
 
@@ -627,16 +661,17 @@ const handleLogout = () => {
       );
 
       await fetchProperties();
-      alert('Property deleted successfully!');
+      showToast('Property deleted successfully!');
     } catch (err) {
       console.error('Error deleting property:', err);
-      alert(err instanceof Error ? err.message : 'Unable to delete property.');
+      showToast(err instanceof Error ? err.message : 'Unable to delete property.','error');
     }
   };
 
   // LOGIN PAGE
   const LoginPage = () => (
     <div className="auth-container">
+       <ToastMessage />
       <div className="auth-card">
         <h2>Welcome Back!</h2>
         <p>Login to your StayFinder account.</p>
@@ -680,6 +715,7 @@ const handleLogout = () => {
   // REGISTER PAGE
   const RegisterPage = () => (
     <div className="auth-container">
+      <ToastMessage />
       <div className="auth-card">
         <h2>Create Account</h2>
         <p>Join StayFinder and find your next home.</p>
@@ -767,6 +803,7 @@ const handleLogout = () => {
 
     return (
       <div className="details-container">
+        <ToastMessage />
         <button
           className="back-btn"
           onClick={() => {
@@ -917,6 +954,7 @@ const handleLogout = () => {
 
     return (
       <div className="properties favorites-page">
+        <ToastMessage />
         <button className="back-btn" onClick={() => setPage('home')}>
           ← Back to Home
         </button>
@@ -977,6 +1015,7 @@ const handleLogout = () => {
   // TENANT DASHBOARD
   const TenantDashboardPage = () => (
     <div className="owner-dashboard">
+      <ToastMessage />
       <div className="dashboard-header">
         <div>
           <p className="tagline">TENANT ACCOUNT</p>
@@ -1063,6 +1102,7 @@ const handleLogout = () => {
   // OWNER DASHBOARD
   const OwnerDashboardPage = () => (
     <div className="owner-dashboard">
+       <ToastMessage />
       <div className="dashboard-header">
         <div>
           <p className="tagline">PROPERTY MANAGEMENT</p>
@@ -1406,6 +1446,7 @@ const handleLogout = () => {
   // HOME PAGE
   return (
     <div className="app">
+      <ToastMessage />
       <header className="navbar">
         <h2 className="logo">
           Stay<span>Finder.</span>

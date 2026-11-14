@@ -22,6 +22,10 @@ app.use("/api/auth", authRoutes);
 const inquiryRoutes = require("./routes/inquiryRoutes");
 app.use("/api/inquiries", inquiryRoutes);
 
+// Favorite Routes
+const favoriteRoutes = require("./routes/favoriteRoutes");
+app.use("/api/favorites", favoriteRoutes);
+
 // Home Route
 app.get("/", (req, res) => {
   res.send("StayFinder Backend is Running!");

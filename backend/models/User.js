@@ -27,6 +27,13 @@ const userSchema = new mongoose.Schema(
       enum: ["tenant", "owner", "admin"],
       default: "tenant",
     },
+
+    favorites: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Property",
+      },
+    ],
   },
   { timestamps: true }
 );

@@ -6,6 +6,7 @@ import './App.css';
 const API_URL = 'http://localhost:5000/api/properties';
 const AUTH_URL = 'http://localhost:5000/api/auth';
 const INQUIRY_URL = 'http://localhost:5000/api/inquiries';
+const FAVORITES_URL = 'http://localhost:5000/api/favorites';
 
 type Page =
   | 'home'
@@ -93,9 +94,44 @@ function App() {
     }
   };
 
+  // GET TENANT FAVORITES
+const fetchFavorites = async (token: string) => {
+  try {
+    const response = await fetch(FAVORITES_URL, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to load favorites.');
+    }
+
+    const favoriteIds = data
+      .filter((property: Property | null) => property !== null)
+      .map((property: Property) => property._id);
+
+    setFavorites(favoriteIds);
+  } catch (err) {
+    console.error('Error loading favorites:', err);
+    setFavorites([]);
+  }
+};
+
   useEffect(() => {
     fetchProperties();
   }, []);
+
+  // LOAD FAVORITES AFTER TENANT LOGIN
+useEffect(() => {
+  if (loggedInUser?.role === 'tenant' && authToken) {
+    fetchFavorites(authToken);
+  } else {
+    setFavorites([]);
+  }
+}, [loggedInUser, authToken]);
 
   // SEARCH PROPERTIES
   const filteredProperties = properties.filter(
@@ -104,14 +140,51 @@ function App() {
       property.location.toLowerCase().includes(search.toLowerCase())
   );
 
-  // TOGGLE FAVORITES
-  const toggleFavorite = (id: string) => {
-    setFavorites((current) =>
-      current.includes(id)
-        ? current.filter((favoriteId) => favoriteId !== id)
-        : [...current, id]
+  // TOGGLE FAVORITES USING MONGODB
+const toggleFavorite = async (id: string) => {
+  if (!loggedInUser || !authToken) {
+    alert('Please login as a tenant to save favorites.');
+    setPage('login');
+    return;
+  }
+
+  if (loggedInUser.role !== 'tenant') {
+    alert('Only tenant accounts can save favorites.');
+    return;
+  }
+
+  const isFavorite = favorites.includes(id);
+
+  try {
+    const response = await fetch(`${FAVORITES_URL}/${id}`, {
+      method: isFavorite ? 'DELETE' : 'POST',
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to update favorites.');
+    }
+
+    const updatedFavorites = data.favorites
+      .filter((property: Property | null) => property !== null)
+      .map((property: Property) => property._id);
+
+    setFavorites(updatedFavorites);
+
+  } catch (err) {
+    console.error('Favorite error:', err);
+
+    alert(
+      err instanceof Error
+        ? err.message
+        : 'Unable to update favorites.'
     );
-  };
+  }
+};
 
   // OPEN PROPERTY DETAILS
   const openDetails = (property: Property) => {
@@ -214,6 +287,7 @@ function App() {
     setAuthToken(null);
     setInquiries([]);
     setTenantInquiries([]);
+    setFavorites([]);
     setPage('home');
     alert('You have logged out successfully.');
   };

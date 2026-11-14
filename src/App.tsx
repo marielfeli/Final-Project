@@ -64,8 +64,22 @@ function App() {
     useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
-  const [authToken, setAuthToken] = useState<string | null>(null);
+
+  // RESTORE LOGIN SESSION
+const [loggedInUser, setLoggedInUser] = useState<User | null>(() => {
+  const savedUser = localStorage.getItem('stayfinderUser');
+
+  try {
+    return savedUser ? JSON.parse(savedUser) : null;
+  } catch {
+    return null;
+  }
+});
+
+const [authToken, setAuthToken] = useState<string | null>(
+  localStorage.getItem('stayfinderToken')
+);
+ 
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [tenantInquiries, setTenantInquiries] = useState<Inquiry[]>([]);
   const [inquiryLoading, setInquiryLoading] = useState(false);
@@ -101,7 +115,7 @@ const fetchFavorites = async (token: string) => {
       headers: {
         Authorization: `Bearer ${token}`,
       },
-    });
+    }); 
 
     const data = await response.json();
 
@@ -269,6 +283,8 @@ const toggleFavorite = async (id: string) => {
 
       setLoggedInUser(data.user);
       setAuthToken(data.token);
+      localStorage.setItem('stayfinderUser', JSON.stringify(data.user));
+      localStorage.setItem('stayfinderToken', data.token); 
       setTenantInquiries([]);
       setInquiries([]);
       form.reset();
@@ -282,16 +298,20 @@ const toggleFavorite = async (id: string) => {
   };
 
   // LOGOUT
-  const handleLogout = () => {
-    setLoggedInUser(null);
-    setAuthToken(null);
-    setInquiries([]);
-    setTenantInquiries([]);
-    setFavorites([]);
-    setPage('home');
-    alert('You have logged out successfully.');
-  };
+const handleLogout = () => {
+  setLoggedInUser(null);
+  setAuthToken(null);
 
+  localStorage.removeItem('stayfinderUser');
+  localStorage.removeItem('stayfinderToken');
+
+  setInquiries([]);
+  setTenantInquiries([]);
+  setFavorites([]);
+  setPage('home');
+
+  alert('You have logged out successfully.');
+};
   // GET TENANT INQUIRIES
   const fetchTenantInquiries = async () => {
     if (!authToken || loggedInUser?.role !== 'tenant') return;

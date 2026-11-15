@@ -33,7 +33,7 @@ const protect = async (req, res, next) => {
 
   } catch (error) {
     console.error("JWT ERROR:", error.message);
-    
+
     return res.status(401).json({
       message: "Invalid or expired token.",
     });
@@ -51,4 +51,19 @@ const ownerOnly = (req, res, next) => {
   });
 };
 
-module.exports = { protect, ownerOnly };
+// CHECK ADMIN ROLE
+const adminOnly = (req, res, next) => {
+  if (req.user && req.user.role === "admin") {
+    return next();
+  }
+
+  return res.status(403).json({
+    message: "Access denied. Admin account required.",
+  });
+};
+
+module.exports = {
+  protect,
+  ownerOnly,
+  adminOnly,
+};

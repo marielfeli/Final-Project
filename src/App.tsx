@@ -7,6 +7,7 @@ const API_URL = 'http://localhost:5000/api/properties';
 const AUTH_URL = 'http://localhost:5000/api/auth';
 const INQUIRY_URL = 'http://localhost:5000/api/inquiries';
 const FAVORITES_URL = 'http://localhost:5000/api/favorites';
+const ADMIN_URL = 'http://localhost:5000/api/admin';
 
 type Page =
   | 'home'
@@ -15,7 +16,8 @@ type Page =
   | 'details'
   | 'favorites'
   | 'owner'
-  | 'tenant';
+  | 'tenant'
+  | 'admin';
 
 type Property = {
   _id: string;
@@ -38,6 +40,21 @@ type User = {
   role: 'tenant' | 'owner' | 'admin';
 };
 
+type AdminStats = {
+  totalUsers: number;
+  totalTenants: number;
+  totalOwners: number;
+  totalProperties: number;
+};
+
+type AdminUser = {
+  _id: string;
+  name: string;
+  email: string;
+  role: 'tenant' | 'owner' | 'admin';
+  createdAt?: string;
+};
+
 type Inquiry = {
   _id: string;
   propertyId: string;
@@ -50,7 +67,6 @@ type Inquiry = {
   status: string;
   createdAt: string;
 };
-
 function App() {
   const [page, setPage] = useState<Page>('home');
   const [search, setSearch] = useState('');
@@ -64,10 +80,17 @@ function App() {
     useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-    const [toast, setToast] = useState<{
+
+  const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'error';
   } | null>(null);
+
+  // ADMIN DASHBOARD STATES
+  const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [adminProperties, setAdminProperties] = useState<Property[]>([]);
+  const [adminLoading, setAdminLoading] = useState(false);
 
   // SHOW TOAST NOTIFICATION
   const showToast = (
@@ -406,6 +429,88 @@ const handleLogout = () => {
     }
   };
 
+  // LOAD ADMIN DASHBOARD DATA
+  const fetchAdminData = async () => {
+    if (!authToken || loggedInUser?.role !== 'admin') return;
+
+    try {
+      setAdminLoading(true);
+
+      const headers = {
+        Authorization: `Bearer ${authToken}`,
+      };
+
+      const [statsResponse, usersResponse, propertiesResponse] =
+        await Promise.all([
+          fetch(`${ADMIN_URL}/dashboard`, { headers }),
+          fetch(`${ADMIN_URL}/users`, { headers }),
+          fetch(`${ADMIN_URL}/properties`, { headers }),
+        ]);
+
+      const [statsData, usersData, propertiesData] = await Promise.all([
+        statsResponse.json(),
+        usersResponse.json(),
+        propertiesResponse.json(),
+      ]);
+
+      if (!statsResponse.ok) {
+        throw new Error(statsData.message || 'Failed to load dashboard statistics.');
+      }
+      if (!usersResponse.ok) {
+        throw new Error(usersData.message || 'Failed to load users.');
+      }
+      if (!propertiesResponse.ok) {
+        throw new Error(propertiesData.message || 'Failed to load properties.');
+      }
+
+      setAdminStats(statsData);
+      setAdminUsers(Array.isArray(usersData) ? usersData : []);
+      setAdminProperties(Array.isArray(propertiesData) ? propertiesData : []);
+    } catch (err) {
+      console.error('Admin dashboard error:', err);
+      showToast(
+        err instanceof Error ? err.message : 'Unable to load admin dashboard.',
+        'error'
+      );
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
+  // ADMIN DELETE PROPERTY
+  const handleAdminDeleteProperty = async (id: string) => {
+    const confirmed = window.confirm(
+      'Are you sure you want to delete this property from StayFinder?'
+    );
+
+    if (!confirmed || !authToken) return;
+
+    try {
+      const response = await fetch(`${ADMIN_URL}/properties/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to delete property.');
+      }
+
+      showToast('Property deleted successfully.');
+      await fetchAdminData();
+      await fetchProperties();
+    } catch (err) {
+      console.error('Admin property deletion error:', err);
+      showToast(
+        err instanceof Error ? err.message : 'Unable to delete property.',
+        'error'
+      );
+    }
+  };
+
   // LOAD INQUIRIES WHEN OPENING DASHBOARDS
   useEffect(() => {
     if (page === 'owner' && loggedInUser?.role === 'owner') {
@@ -414,6 +519,10 @@ const handleLogout = () => {
 
     if (page === 'tenant' && loggedInUser?.role === 'tenant') {
       fetchTenantInquiries();
+    }
+
+    if (page === 'admin' && loggedInUser?.role === 'admin' && authToken) {
+      fetchAdminData();
     }
   }, [page, loggedInUser, authToken]);
 
@@ -1407,6 +1516,107 @@ const handleLogout = () => {
     </div>
   );
 
+  // ADMIN DASHBOARD
+  const AdminDashboardPage = () => (
+    <div className="owner-dashboard">
+      <ToastMessage />
+
+      <div className="dashboard-header">
+        <div>
+          <p className="tagline">STAYFINDER MANAGEMENT</p>
+          <h1>Admin Dashboard</h1>
+          <p>Welcome, {loggedInUser?.name}! Manage platform users and property listings.</p>
+        </div>
+        <button className="view-btn" onClick={fetchAdminData} disabled={adminLoading}>
+          {adminLoading ? 'Refreshing...' : 'Refresh Dashboard'}
+        </button>
+      </div>
+
+      {adminLoading && !adminStats ? (
+        <p>Loading admin dashboard...</p>
+      ) : (
+        <>
+          <div className="dashboard-stats">
+            <div className="stat-card">
+              <h3>{adminStats?.totalUsers ?? 0}</h3>
+              <p>Total Users</p>
+            </div>
+            <div className="stat-card">
+              <h3>{adminStats?.totalTenants ?? 0}</h3>
+              <p>Total Tenants</p>
+            </div>
+            <div className="stat-card">
+              <h3>{adminStats?.totalOwners ?? 0}</h3>
+              <p>Total Owners</p>
+            </div>
+            <div className="stat-card">
+              <h3>{adminStats?.totalProperties ?? 0}</h3>
+              <p>Total Properties</p>
+            </div>
+          </div>
+
+          <div className="dashboard-listings">
+            <h2>Registered Users ({adminUsers.length})</h2>
+            {adminUsers.length > 0 ? (
+              adminUsers.map((user) => (
+                <div className="dashboard-property" key={user._id}>
+                  <div>
+                    <h3>{user.name}</h3>
+                    <p>{user.email}</p>
+                    <p>Role: <strong>{user.role}</strong></p>
+                    {user.createdAt && (
+                      <small>
+                        Joined: {new Date(user.createdAt).toLocaleDateString()}
+                      </small>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p>No registered users found.</p>
+            )}
+          </div>
+
+          <div className="dashboard-listings">
+            <h2>All Property Listings ({adminProperties.length})</h2>
+            {adminProperties.length > 0 ? (
+              adminProperties.map((property) => (
+                <div className="dashboard-property" key={property._id}>
+                  <img src={property.image} alt={property.name} />
+                  <div>
+                    <h3>{property.name}</h3>
+                    <p>📍 {property.location}</p>
+                    <p>₱{property.price.toLocaleString()} / month</p>
+                    <p>Owner: {property.ownerName}</p>
+                    <p>Email: {property.ownerEmail}</p>
+                  </div>
+                  <button
+                    className="view-btn"
+                    onClick={() => openDetails(property)}
+                  >
+                    View Details
+                  </button>
+                  <button
+                    className="delete-property-btn"
+                    onClick={() => handleAdminDeleteProperty(property._id)}
+                  >
+                    Delete Property
+                  </button>
+                </div>
+              ))
+            ) : (
+              <p>No property listings found.</p>
+            )}
+          </div>
+        </>
+      )}
+
+      <button className="back-btn" onClick={() => setPage('home')}>
+        ← Back to Home
+      </button>
+    </div>
+  );
+
   // PAGE NAVIGATION
   if (page === 'login') return <LoginPage />;
   if (page === 'register') return <RegisterPage />;
@@ -1441,6 +1651,21 @@ const handleLogout = () => {
     }
 
     return <TenantDashboardPage />;
+  }
+
+  if (page === 'admin') {
+    if (loggedInUser?.role !== 'admin') {
+      return (
+        <div className="app">
+          <p>Access denied. Admin account required.</p>
+          <button className="back-btn" onClick={() => setPage('home')}>
+            Back to Home
+          </button>
+        </div>
+      );
+    }
+
+    return <AdminDashboardPage />;
   }
 
   // HOME PAGE
@@ -1482,6 +1707,14 @@ const handleLogout = () => {
               onClick={() => setPage('tenant')}
             >
               Tenant Dashboard
+            </button>
+          )}
+          {loggedInUser?.role === 'admin' && (
+            <button
+              className="favorites-nav-btn"
+              onClick={() => setPage('admin')}
+            >
+              Admin Dashboard
             </button>
           )}
         </nav>

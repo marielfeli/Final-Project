@@ -26,6 +26,10 @@ app.use("/api/inquiries", inquiryRoutes);
 const favoriteRoutes = require("./routes/favoriteRoutes");
 app.use("/api/favorites", favoriteRoutes);
 
+// Admin Routes
+const adminRoutes = require("./routes/adminRoutes");
+app.use("/api/admin", adminRoutes);
+
 // Home Route
 app.get("/", (req, res) => {
   res.send("StayFinder Backend is Running!");

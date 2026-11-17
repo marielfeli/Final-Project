@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "StayFinder",
+    "slug": "stayfinder",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "stayfinder",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.stayfinder.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#F5F7FB"
+      }
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font"
+    ]
+  }
+}

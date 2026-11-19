@@ -23,6 +23,8 @@ type Property = {
   _id: string;
   name: string;
   location: string;
+  latitude?: number | null;
+  longitude?: number | null;
   price: number;
   type: string;
   image: string;
@@ -636,6 +638,8 @@ const handleLogout = () => {
     const newProperty = {
       name: String(formData.get('name')),
       location: String(formData.get('location')),
+      latitude: formData.get('latitude') ? Number(formData.get('latitude')) : null,
+      longitude: formData.get('longitude') ? Number(formData.get('longitude')) : null,
       price: Number(formData.get('price')),
       type: String(formData.get('type')),
       image,
@@ -698,6 +702,8 @@ const handleLogout = () => {
     const updatedProperty = {
       name: String(formData.get('name')),
       location: String(formData.get('location')),
+      latitude: formData.get('latitude') ? Number(formData.get('latitude')) : null,
+      longitude: formData.get('longitude') ? Number(formData.get('longitude')) : null,
       price: Number(formData.get('price')),
       type: String(formData.get('type')),
       image,
@@ -954,6 +960,26 @@ const handleLogout = () => {
           <div className="details-main">
             <h2>About This Property</h2>
             <p>{selectedProperty.description}</p>
+
+            <h2>Location Map</h2>
+            {selectedProperty.latitude != null && selectedProperty.longitude != null ? (
+              <div style={{ margin: '16px 0', borderRadius: '14px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+                <iframe
+                  title={`Map of ${selectedProperty.name}`}
+                  src={`https://maps.google.com/maps?q=${selectedProperty.latitude},${selectedProperty.longitude}&z=15&output=embed`}
+                  width="100%"
+                  height="350"
+                  style={{ border: 0, display: 'block' }}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+                <p style={{ padding: '12px 16px', margin: 0 }}>
+                  📍 {selectedProperty.location} ({selectedProperty.latitude}, {selectedProperty.longitude})
+                </p>
+              </div>
+            ) : (
+              <p>Map location has not been added by the property owner yet.</p>
+            )}
 
             <h2>Amenities</h2>
             <div className="amenities-list">
@@ -1327,6 +1353,24 @@ const handleLogout = () => {
               placeholder="Enter city or location"
               defaultValue={editingProperty?.location || ''}
               required
+            />
+
+            <label>Latitude</label>
+            <input
+              name="latitude"
+              type="number"
+              step="any"
+              placeholder="Enter latitude (optional)"
+              defaultValue={editingProperty?.latitude ?? ''}
+            />
+
+            <label>Longitude</label>
+            <input
+              name="longitude"
+              type="number"
+              step="any"
+              placeholder="Enter longitude (optional)"
+              defaultValue={editingProperty?.longitude ?? ''}
             />
 
             <label>Monthly Rental Price (₱)</label>

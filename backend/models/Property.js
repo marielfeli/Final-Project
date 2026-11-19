@@ -1,8 +1,22 @@
-
 const mongoose = require("mongoose");
+
 const propertySchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   location: { type: String, required: true, trim: true },
+  
+  latitude: {
+    type: Number,
+    default: null,
+  },
+  longitude: {
+    type: Number,
+    default: null,
+  },
+
+  // Map coordinates
+  latitude: { type: Number, default: null },
+  longitude: { type: Number, default: null },
+
   price: { type: Number, required: true, min: 0 },
   type: { type: String, required: true },
   image: { type: String, required: true },
@@ -14,8 +28,20 @@ const propertySchema = new mongoose.Schema({
   bedrooms: { type: Number, default: 0 },
   bathrooms: { type: Number, default: 0 },
   maxOccupants: { type: Number, default: 1 },
-  availability: { type: String, enum: ["available", "unavailable", "occupied"], default: "available" },
-  status: { type: String, enum: ["pending", "approved", "rejected", "revision"], default: "approved" },
-  rejectionReason: { type: String, default: "" }
+
+  availability: {
+    type: String,
+    enum: ["available", "unavailable", "occupied"],
+    default: "available",
+  },
+
+  status: {
+    type: String,
+    enum: ["pending", "approved", "rejected", "revision"],
+    default: "approved",
+  },
+
+  rejectionReason: { type: String, default: "" },
 }, { timestamps: true });
+
 module.exports = mongoose.model("Property", propertySchema);

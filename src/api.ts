@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Booking, Inquiry, Property, User } from './types';
 
 const BASE_URL = (
-  process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.12:5000/api'
+  process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.104:5000/api'
 ).replace(/\/$/, '');
 
 let tokenCache: string | null = null;

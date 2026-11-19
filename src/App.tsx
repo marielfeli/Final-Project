@@ -71,6 +71,9 @@ type Inquiry = {
 };
 function App() {
   const [page, setPage] = useState<Page>('home');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [search, setSearch] = useState('');
   const [properties, setProperties] = useState<Property[]>([]);
   const [selectedProperty, setSelectedProperty] =

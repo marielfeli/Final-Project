@@ -26,7 +26,7 @@ export default function App() {
  const [search,setSearch]=useState('');
  const [busy,setBusy]=useState(false);
  const [refreshing,setRefreshing]=useState(false);
- const [loginEmail,setLoginEmail]=useState(''); const [loginPassword,setLoginPassword]=useState('');
+ const [loginEmail,setLoginEmail]=useState(''); const [loginPassword,setLoginPassword]=useState(''); const [showLoginPassword,setShowLoginPassword]=useState(false); const [showRegisterPassword,setShowRegisterPassword]=useState(false);
  const [name,setName]=useState(''); const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [role,setRole]=useState<Role>('tenant');
  const [validIdFile,setValidIdFile]=useState<{uri:string;name:string;type:string;size?:number}|null>(null);
  const [ownershipProofFile,setOwnershipProofFile]=useState<{uri:string;name:string;type:string;size?:number}|null>(null);

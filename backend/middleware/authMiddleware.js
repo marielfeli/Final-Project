@@ -15,10 +15,7 @@ const protect = async (req, res, next) => {
 
     const token = authHeader.split(" ")[1];
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await User.findById(decoded.id).select("-password");
 
@@ -40,12 +37,24 @@ const protect = async (req, res, next) => {
   }
 };
 
-// CHECK OWNER ROLE
+// CHECK OWNER OR ADMIN ROLE
 const ownerOnly = (req, res, next) => {
+  // ADMIN CAN ACCESS
+  if (req.user && req.user.role === "admin") {
+    return next();
+  }
+
+  // OWNER ACCESS
   if (req.user && req.user.role === "owner") {
-    if (req.user.verificationStatus && !["approved", "not_required"].includes(req.user.verificationStatus)) {
-      return res.status(403).json({ message: "Your Apartment Owner application is awaiting Admin approval." });
+    if (
+      req.user.verificationStatus &&
+      !["approved", "not_required"].includes(req.user.verificationStatus)
+    ) {
+      return res.status(403).json({
+        message: "Your Apartment Owner application is awaiting Admin approval.",
+      });
     }
+
     return next();
   }
 

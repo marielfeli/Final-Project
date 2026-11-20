@@ -1,30 +1,31 @@
+
 export const C = {
-  // Primary theme
-  navy: '#244C3B',
-  blue: '#244C3B',
-  cyan: '#C78B55',
+  // Primary theme — Warm Golden Premium
+  navy: '#25362B',
+  blue: '#C5A46D',
+  cyan: '#C5A46D',
 
   // Background colors
-  bg: '#F6F1E7',
-  white: '#FFFFFF',
-  paleBlue: '#EAE3D7',
+  bg: '#F3F2EC',
+  white: '#FBFAF6',
+  paleBlue: '#E8EAE3',
 
   // Text colors
-  ink: '#252923',
+  ink: '#25362B',
   muted: '#7C817A',
 
   // Borders
-  line: '#E3D5BF',
+  line: '#E5DFD2',
 
   // Status colors
-  green: '#39805C',
+  green: '#66816D',
   red: '#C75B50',
-  amber: '#C78B55',
+  amber: '#C5A46D',
 };
 
 export const shadow = {
-  shadowColor: '#244C3B',
-  shadowOpacity: 0.09,
+  shadowColor: '#25362B',
+  shadowOpacity: 0.08,
   shadowRadius: 16,
   shadowOffset: { width: 0, height: 6 },
   elevation: 3,

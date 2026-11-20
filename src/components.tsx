@@ -2,6 +2,7 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Pressable,
   StyleSheet,
@@ -11,7 +12,22 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { C, shadow } from './theme';
+import { C as BaseC, shadow } from './theme';
+
+// Shared component palette — StayFinder Warm Golden Premium theme.
+// Colors are inherited from src/theme.ts to keep the app theme consistent.
+const C = {
+  ...BaseC,
+  blue: BaseC.blue,
+  paleBlue: '#E8EAE3',
+  navy: BaseC.navy,
+  white: BaseC.white,
+  ink: BaseC.ink,
+  muted: BaseC.muted,
+  line: BaseC.line,
+  bg: BaseC.bg,
+  green: BaseC.green,
+};
 
 export function Button({
   title,
@@ -29,39 +45,42 @@ export function Button({
   icon?: keyof typeof Ionicons.glyphMap;
 }) {
   const isLight = variant === 'outline' || variant === 'ghost';
+  const pressScale = React.useRef(new Animated.Value(1)).current;
+
+  const animatePress = (pressed: boolean) => {
+    Animated.spring(pressScale, {
+      toValue: pressed && !disabled && !loading ? 0.965 : 1,
+      useNativeDriver: true,
+      speed: 24,
+      bounciness: 5,
+    }).start();
+  };
 
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled || loading}
-      style={({ pressed }) => [
-        s.button,
-        variant === 'outline' && s.outline,
-        variant === 'ghost' && s.ghost,
-        variant === 'danger' && s.danger,
-        pressed && !disabled && !loading && s.pressed,
-        (disabled || loading) && s.disabled,
-      ]}
-    >
-      {loading ? (
-        <ActivityIndicator color={isLight ? C.blue : C.white} />
-      ) : icon ? (
-        <Ionicons
-          name={icon}
-          size={18}
-          color={isLight ? C.blue : C.white}
-        />
-      ) : null}
-
-      <Text
-        style={[
-          s.buttonText,
-          isLight && s.lightButtonText,
+    <Animated.View style={{ transform: [{ scale: pressScale }] }}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => animatePress(true)}
+        onPressOut={() => animatePress(false)}
+        disabled={disabled || loading}
+        style={({ pressed }) => [
+          s.button,
+          variant === 'outline' && s.outline,
+          variant === 'ghost' && s.ghost,
+          variant === 'danger' && s.danger,
+          pressed && !disabled && !loading && s.pressed,
+          (disabled || loading) && s.disabled,
         ]}
       >
-        {title}
-      </Text>
-    </Pressable>
+        {loading ? (
+          <ActivityIndicator color={isLight ? C.blue : C.white} />
+        ) : icon ? (
+          <Ionicons name={icon} size={18} color={isLight ? C.blue : C.white} />
+        ) : null}
+
+        <Text style={[s.buttonText, isLight && s.lightButtonText]}>{title}</Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -110,7 +129,7 @@ export function Field({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder || label}
-          placeholderTextColor="#A49F95"
+          placeholderTextColor="#AAB5AC"
           secureTextEntry={secureTextEntry && !showPassword}
           multiline={multiline}
           keyboardType={keyboardType}
@@ -226,6 +245,23 @@ export function PropertyCard({
     item.photos?.[0] ||
     'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=900';
 
+  const heartScale = React.useRef(new Animated.Value(1)).current;
+
+  const animateHeart = () => {
+    heartScale.setValue(0.72);
+    Animated.spring(heartScale, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 22,
+      bounciness: 12,
+    }).start();
+  };
+
+  const handleFavorite = () => {
+    animateHeart();
+    onFavorite?.();
+  };
+
   return (
     <Pressable
       onPress={onPress}
@@ -235,59 +271,43 @@ export function PropertyCard({
       ]}
     >
       <View style={s.propertyImageContainer}>
-        <Image
-          source={{ uri: image }}
-          style={s.propertyImage}
-          resizeMode="cover"
-        />
-
+        <Image source={{ uri: image }} style={s.propertyImage} resizeMode="cover" />
         <View style={s.imageShade} />
 
         <View style={s.propertyTypeBadge}>
-          <Text style={s.propertyTypeBadgeText}>
-            {item.type || 'Apartment'}
-          </Text>
+          <Text style={s.propertyTypeBadgeText}>{item.type || 'Apartment'}</Text>
         </View>
 
         {onFavorite ? (
           <Pressable
-            onPress={onFavorite}
+            onPress={handleFavorite}
             hitSlop={8}
             style={s.heart}
           >
-            <Ionicons
-              name={favorite ? 'heart' : 'heart-outline'}
-              size={20}
-              color={favorite ? C.red : C.navy}
-            />
+            <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+              <Ionicons
+                name={favorite ? 'heart' : 'heart-outline'}
+                size={20}
+                color={favorite ? C.red : C.navy}
+              />
+            </Animated.View>
           </Pressable>
         ) : null}
       </View>
 
       <View style={s.propertyContent}>
-        <Text style={s.propertyName} numberOfLines={1}>
-          {item.name}
-        </Text>
+        <Text style={s.propertyName} numberOfLines={1}>{item.name}</Text>
 
         <View style={s.locationRow}>
-          <Ionicons
-            name="location-outline"
-            size={15}
-            color={C.muted}
-          />
-          <Text style={s.sub} numberOfLines={1}>
-            {item.location}
-          </Text>
+          <Ionicons name="location-outline" size={15} color={C.muted} />
+          <Text style={s.sub} numberOfLines={1}>{item.location}</Text>
         </View>
 
         <View style={s.propertyBottom}>
           <View>
-            <Text style={s.price}>
-              ₱{Number(item.price || 0).toLocaleString()}
-            </Text>
+            <Text style={s.price}>₱{Number(item.price || 0).toLocaleString()}</Text>
             <Text style={s.per}>per month</Text>
           </View>
-
           <View style={s.priceLabel}>
             <Text style={s.priceLabelText}>MONTHLY RENT</Text>
           </View>
@@ -361,7 +381,7 @@ const s = StyleSheet.create({
   },
   fieldFocused: {
     borderColor: C.blue,
-    backgroundColor: '#FFFDF9',
+    backgroundColor: '#F3EBDD',
   },
   multilineWrap: {
     height: 115,
@@ -371,7 +391,7 @@ const s = StyleSheet.create({
   input: {
     flex: 1,
     color: C.ink,
-    fontSize: 14,
+    fontSize: 15,
     paddingVertical: 11,
   },
   multilineInput: {
@@ -490,7 +510,7 @@ const s = StyleSheet.create({
   propertyName: {
     fontSize: 17,
     fontWeight: '900',
-    color: C.navy,
+    color: C.ink,
     letterSpacing: -0.3,
   },
   locationRow: {

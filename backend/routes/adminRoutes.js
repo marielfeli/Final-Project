@@ -31,9 +31,9 @@ const hasDocument = (owner, documentType) => {
 
   return Boolean(
     document &&
-    document.storageName &&
-    document.mimeType &&
-    ALLOWED_MIME_TYPES.includes(document.mimeType)
+      document.storageName &&
+      document.mimeType &&
+      ALLOWED_MIME_TYPES.includes(document.mimeType)
   );
 };
 
@@ -69,7 +69,6 @@ router.get("/dashboard", protect, adminOnly, async (req, res) => {
     });
   } catch (error) {
     console.error("Dashboard error:", error);
-
     res.status(500).json({
       message: "Failed to load dashboard statistics.",
     });
@@ -86,7 +85,6 @@ router.get("/users", protect, adminOnly, async (req, res) => {
     res.json(users);
   } catch (error) {
     console.error("Get users error:", error);
-
     res.status(500).json({
       message: "Failed to load users.",
     });
@@ -96,13 +94,10 @@ router.get("/users", protect, adminOnly, async (req, res) => {
 // GET ALL PROPERTIES
 router.get("/properties", protect, adminOnly, async (req, res) => {
   try {
-    const properties = await Property.find()
-      .sort({ createdAt: -1 });
-
+    const properties = await Property.find().sort({ createdAt: -1 });
     res.json(properties);
   } catch (error) {
     console.error("Get properties error:", error);
-
     res.status(500).json({
       message: "Failed to load properties.",
     });
@@ -127,7 +122,6 @@ router.delete("/properties/:id", protect, adminOnly, async (req, res) => {
     });
   } catch (error) {
     console.error("Delete property error:", error);
-
     res.status(500).json({
       message: "Failed to delete property.",
     });
@@ -179,7 +173,6 @@ router.patch(
       });
     } catch (error) {
       console.error("Property decision error:", error);
-
       res.status(400).json({
         message: error.message,
       });
@@ -216,7 +209,6 @@ router.patch("/users/:id/status", protect, adminOnly, async (req, res) => {
     });
   } catch (error) {
     console.error("Account status error:", error);
-
     res.status(400).json({
       message: error.message,
     });
@@ -238,7 +230,6 @@ router.get("/owner-applications", protect, adminOnly, async (req, res) => {
     res.json(applications);
   } catch (error) {
     console.error("Owner applications error:", error);
-
     res.status(500).json({
       message: "Failed to load owner applications.",
     });
@@ -246,7 +237,6 @@ router.get("/owner-applications", protect, adminOnly, async (req, res) => {
 });
 
 // VIEW PRIVATE OWNER DOCUMENT
-// Only authenticated administrators can access this endpoint.
 router.get(
   "/users/:id/documents/:documentType",
   protect,
@@ -254,7 +244,6 @@ router.get(
   async (req, res) => {
     try {
       const { id, documentType } = req.params;
-
       const documentField = ALLOWED_DOCUMENT_TYPES[documentType];
 
       if (!documentField) {
@@ -341,7 +330,6 @@ router.get(
       return res.sendFile(filePath);
     } catch (error) {
       console.error("Private document viewing error:", error);
-
       res.status(500).json({
         message: "Failed to open owner document.",
       });
@@ -364,6 +352,7 @@ router.patch(
         });
       }
 
+      // Rejection and revision still require an explanation.
       if (
         verificationStatus !== "approved" &&
         !String(verificationNote || "").trim()
@@ -384,27 +373,12 @@ router.patch(
         });
       }
 
-      // Accept new uploaded documents or legacy links.
-      const hasValidId =
-        hasDocument(owner, "validIdDocument") ||
-        Boolean(String(owner.validIdUrl || "").trim());
-
-      const hasOwnershipProof =
-        hasDocument(owner, "ownershipProofDocument") ||
-        Boolean(String(owner.ownershipProofUrl || "").trim());
-
-      if (
-        verificationStatus === "approved" &&
-        (!hasValidId || !hasOwnershipProof)
-      ) {
-        return res.status(400).json({
-          message: "Valid ID and Proof of Ownership must be submitted before approval.",
-        });
-      }
-
+      // DOCUMENT REQUIREMENT REMOVED:
+      // Owners can now be approved without Valid ID or Proof of Ownership.
       owner.verificationStatus = verificationStatus;
-      owner.verificationNote =
-        verificationNote ? String(verificationNote).trim() : "";
+      owner.verificationNote = verificationNote
+        ? String(verificationNote).trim()
+        : "";
 
       owner.documentsReviewedAt = new Date();
       owner.documentsReviewedBy = req.user._id;
@@ -419,7 +393,6 @@ router.patch(
       });
     } catch (error) {
       console.error("Owner verification error:", error);
-
       res.status(400).json({
         message: error.message,
       });

@@ -47,6 +47,10 @@ app.use("/api/chat", chatRoutes);
 const adminRoutes = require("./routes/adminRoutes");
 app.use("/api/admin", adminRoutes);
 
+// NOTIFICATION ROUTES
+const notificationRoutes = require("./routes/notificationRoutes");
+app.use("/api/notifications", notificationRoutes);
+
 // HOME ROUTE
 app.get("/", (req, res) => {
   res.json({

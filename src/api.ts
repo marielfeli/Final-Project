@@ -8,6 +8,10 @@ const BASE_URL = (
 
 let tokenCache: string | null = null;
 
+// ==========================================
+// SESSION MANAGEMENT
+// ==========================================
+
 export async function saveSession(token: string, user: User) {
   tokenCache = token;
 
@@ -43,6 +47,10 @@ export async function clearSession() {
   await SecureStore.deleteItemAsync('stayfinder_user');
 }
 
+// ==========================================
+// CENTRAL REQUEST HANDLER
+// ==========================================
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -62,28 +70,58 @@ async function request<T>(
   let response: Response;
 
   try {
-    response = await fetch(`${BASE_URL}${path}`, {
+    const fullUrl = `${BASE_URL}${path}`;
+
+    console.log(
+      'StayFinder API Request:',
+      options.method || 'GET',
+      fullUrl,
+    );
+
+    response = await fetch(fullUrl, {
       ...options,
       headers,
     });
-  } catch {
+  } catch (error: any) {
+    console.error('StayFinder Network Error:', error);
+
     throw new Error(
-      `Cannot connect to StayFinder server. Check API URL: ${BASE_URL}`,
+      `Unable to reach StayFinder server.\n` +
+        `API: ${BASE_URL}${path}\n` +
+        `Details: ${error?.message || 'Network request failed'}`,
     );
   }
 
-  const body = await response.json().catch(() => ({}));
+  let body: any = {};
+
+  try {
+    body = await response.json();
+  } catch {
+    body = {};
+  }
 
   if (!response.ok) {
+    console.error('StayFinder API Error:', response.status, body);
+
     throw new Error(
-      body.message || `Request failed (${response.status})`,
+      body.message ||
+        body.debug ||
+        `Request failed with status ${response.status}`,
     );
   }
 
   return body as T;
 }
 
+// ==========================================
+// API
+// ==========================================
+
 export const api = {
+  // ========================================
+  // AUTH
+  // ========================================
+
   login: (email: string, password: string) =>
     request<{
       token: string;
@@ -94,6 +132,10 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
+  // REGISTER - JSON ONLY
+  // No FormData
+  // No Valid ID upload
+  // No Proof of Ownership upload
   register: (data: {
     name: string;
     email: string;
@@ -101,83 +143,31 @@ export const api = {
     role: string;
     phone?: string;
     address?: string;
-    validId?: {
-      uri: string;
-      name: string;
-      type: string;
-    };
-    ownershipProof?: {
-      uri: string;
-      name: string;
-      type: string;
-    };
-  }) => {
-    const formData = new FormData();
-
-    formData.append('name', data.name);
-    formData.append('email', data.email);
-    formData.append('password', data.password);
-    formData.append('role', data.role);
-
-    if (data.phone) formData.append('phone', data.phone);
-    if (data.address) formData.append('address', data.address);
-
-    if (data.validId) {
-      formData.append(
-        'validId',
-        {
-          uri: data.validId.uri,
-          name: data.validId.name,
-          type: data.validId.type,
-        } as unknown as Blob,
-      );
-    }
-
-    if (data.ownershipProof) {
-      formData.append(
-        'ownershipProof',
-        {
-          uri: data.ownershipProof.uri,
-          name: data.ownershipProof.name,
-          type: data.ownershipProof.type,
-        } as unknown as Blob,
-      );
-    }
-
-    return request<{ message: string }>('/auth/register', {
+  }) =>
+    request<{
+      message: string;
+      success?: boolean;
+      user?: User;
+    }>('/auth/register', {
       method: 'POST',
-      body: formData,
-    });
-  },
+      body: JSON.stringify({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        role: data.role,
+        phone: data.phone || '',
+        address: data.address || '',
+      }),
+    }),
+
+  // ========================================
+  // PROPERTIES
+  // ========================================
 
   properties: () => request<Property[]>('/properties'),
 
   property: (id: string) =>
     request<Property>(`/properties/${id}`),
-
-  favorites: () => request<Property[]>('/favorites'),
-
-  toggleFavorite: (id: string, saved: boolean) =>
-    request<any>(`/favorites/${id}`, {
-      method: saved ? 'DELETE' : 'POST',
-    }),
-
-  sendInquiry: (propertyId: string, message: string) =>
-    request<any>('/inquiries', {
-      method: 'POST',
-      body: JSON.stringify({ propertyId, message }),
-    }),
-
-  ownerInquiries: () =>
-    request<Inquiry[]>('/inquiries/my-inquiries'),
-
-  tenantInquiries: () =>
-    request<Inquiry[]>('/inquiries/tenant-inquiries'),
-
-  markInquiryRead: (id: string) =>
-    request<any>(`/inquiries/${id}/read`, {
-      method: 'PATCH',
-    }),
 
   ownerProperties: () =>
     request<Property[]>('/properties/mine'),
@@ -198,6 +188,42 @@ export const api = {
     request<any>(`/properties/${id}`, {
       method: 'DELETE',
     }),
+
+  // ========================================
+  // FAVORITES
+  // ========================================
+
+  favorites: () => request<Property[]>('/favorites'),
+
+  toggleFavorite: (id: string, saved: boolean) =>
+    request<any>(`/favorites/${id}`, {
+      method: saved ? 'DELETE' : 'POST',
+    }),
+
+  // ========================================
+  // INQUIRIES
+  // ========================================
+
+  sendInquiry: (propertyId: string, message: string) =>
+    request<any>('/inquiries', {
+      method: 'POST',
+      body: JSON.stringify({ propertyId, message }),
+    }),
+
+  ownerInquiries: () =>
+    request<Inquiry[]>('/inquiries/my-inquiries'),
+
+  tenantInquiries: () =>
+    request<Inquiry[]>('/inquiries/tenant-inquiries'),
+
+  markInquiryRead: (id: string) =>
+    request<any>(`/inquiries/${id}/read`, {
+      method: 'PATCH',
+    }),
+
+  // ========================================
+  // BOOKINGS
+  // ========================================
 
   createBooking: (data: Partial<Booking>) =>
     request<any>('/bookings', {
@@ -223,6 +249,10 @@ export const api = {
         rejectionReason: reason,
       }),
     }),
+
+  // ========================================
+  // ADMIN
+  // ========================================
 
   adminDashboard: () =>
     request<any>('/admin/dashboard'),
@@ -267,7 +297,7 @@ export const api = {
       }),
     }),
 
-    adminGetOwnerDocument: (
+  adminGetOwnerDocument: (
     id: string,
     documentType: 'validId' | 'ownershipProof',
   ) =>
@@ -275,7 +305,10 @@ export const api = {
       `/admin/users/${id}/documents/${documentType}`,
     ),
 
-  // CHAT API
+  // ========================================
+  // CHAT
+  // ========================================
+
   startConversation: (propertyId: string) =>
     request<any>(`/chat/start/${propertyId}`, {
       method: 'POST',
@@ -296,5 +329,30 @@ export const api = {
   markMessagesAsRead: (conversationId: string) =>
     request<any>(`/chat/${conversationId}/read`, {
       method: 'PATCH',
+    }),
+
+  // ========================================
+  // NOTIFICATIONS
+  // ========================================
+
+  getNotifications: () =>
+    request<{
+      notifications: any[];
+      unreadCount: number;
+    }>('/notifications'),
+
+  markNotificationAsRead: (id: string) =>
+    request<any>(`/notifications/${id}/read`, {
+      method: 'PATCH',
+    }),
+
+  markAllNotificationsAsRead: () =>
+    request<any>('/notifications/read-all', {
+      method: 'PATCH',
+    }),
+
+  deleteNotification: (id: string) =>
+    request<any>(`/notifications/${id}`, {
+      method: 'DELETE',
     }),
 };

@@ -804,11 +804,13 @@ const handleLogout = () => {
           />
 
           <label>Password</label>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}></div>
           <input
             name="password"
-            type="password"
+            type={showLoginPassword ? 'text' : 'password'}
             placeholder="Enter your password"
             required
+            style={{ width: '100%', paddingRight: '65px' }}
           />
 
           <button type="submit" className="auth-btn">

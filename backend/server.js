@@ -39,6 +39,10 @@ app.use("/api/favorites", favoriteRoutes);
 const bookingRoutes = require("./routes/bookingRoutes");
 app.use("/api/bookings", bookingRoutes);
 
+// CHAT ROUTES
+const chatRoutes = require("./routes/chatRoutes");
+app.use("/api/chat", chatRoutes);
+
 // ADMIN ROUTES
 const adminRoutes = require("./routes/adminRoutes");
 app.use("/api/admin", adminRoutes);

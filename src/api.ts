@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Booking, Inquiry, Property, User } from './types';
 
 const BASE_URL = (
-  process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.104:5000/api'
+  process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.102:5000/api'
 ).replace(/\/$/, '');
 
 let tokenCache: string | null = null;
@@ -267,11 +267,34 @@ export const api = {
       }),
     }),
 
-  adminGetOwnerDocument: (
+    adminGetOwnerDocument: (
     id: string,
     documentType: 'validId' | 'ownershipProof',
   ) =>
     request<any>(
       `/admin/users/${id}/documents/${documentType}`,
     ),
+
+  // CHAT API
+  startConversation: (propertyId: string) =>
+    request<any>(`/chat/start/${propertyId}`, {
+      method: 'POST',
+    }),
+
+  getConversations: () =>
+    request<any[]>('/chat'),
+
+  getMessages: (conversationId: string) =>
+    request<any[]>(`/chat/${conversationId}/messages`),
+
+  sendMessage: (conversationId: string, text: string) =>
+    request<any>(`/chat/${conversationId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+
+  markMessagesAsRead: (conversationId: string) =>
+    request<any>(`/chat/${conversationId}/read`, {
+      method: 'PATCH',
+    }),
 };

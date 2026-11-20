@@ -1,7 +1,31 @@
-
 export const C = {
-  navy:'#13243A', blue:'#2563EB', cyan:'#21B6C7', bg:'#F4F7FB',
-  white:'#FFFFFF', ink:'#172B4D', muted:'#718096', line:'#E6ECF3',
-  green:'#15966B', red:'#D94B55', amber:'#D99122', paleBlue:'#EAF2FF',
+  // Primary theme
+  navy: '#244C3B',
+  blue: '#244C3B',
+  cyan: '#C78B55',
+
+  // Background colors
+  bg: '#F6F1E7',
+  white: '#FFFFFF',
+  paleBlue: '#EAE3D7',
+
+  // Text colors
+  ink: '#252923',
+  muted: '#7C817A',
+
+  // Borders
+  line: '#E3D5BF',
+
+  // Status colors
+  green: '#39805C',
+  red: '#C75B50',
+  amber: '#C78B55',
 };
-export const shadow = { shadowColor:'#13243A', shadowOpacity:0.07, shadowRadius:18, shadowOffset:{width:0,height:8}, elevation:3 };
+
+export const shadow = {
+  shadowColor: '#244C3B',
+  shadowOpacity: 0.09,
+  shadowRadius: 16,
+  shadowOffset: { width: 0, height: 6 },
+  elevation: 3,
+};

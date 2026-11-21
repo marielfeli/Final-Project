@@ -1,3 +1,4 @@
+
 export type Role = 'admin' | 'owner' | 'tenant';
 
 export type User = {
@@ -60,13 +61,33 @@ export type Booking = {
   _id: string;
   propertyId: string;
   propertyName?: string;
+
+  ownerName?: string;
+  ownerEmail?: string;
+
   customerName?: string;
   customerEmail?: string;
+
   moveInDate: string;
   durationMonths: number;
   occupants: number;
   message?: string;
-  status: string;
+
+  status:
+    | 'pending'
+    | 'approved'
+    | 'rejected'
+    | 'checked_in'
+    | 'completed'
+    | 'cancelled';
+
+  // Actual check-in timestamp
+  checkInAt?: string | null;
+
+  // Actual check-out timestamp
+  checkOutAt?: string | null;
+
   rejectionReason?: string;
   createdAt?: string;
+  updatedAt?: string;
 };

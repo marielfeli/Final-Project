@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Booking, Inquiry, Property, User } from './types';
 
 const BASE_URL = (
-  process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.102:5000/api'
+  process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.105:5000/api'
 ).replace(/\/$/, '');
 
 let tokenCache: string | null = null;
@@ -236,6 +236,17 @@ export const api = {
 
   ownerBookings: () =>
     request<Booking[]>('/bookings/owner'),
+
+  checkInBooking: (id: string) =>
+    request<any>(`/bookings/${id}/check-in`, {
+      method: 'PATCH',
+    }),
+
+  checkOutBooking: (id: string) =>
+    request<any>(`/bookings/${id}/check-out`, {
+      method: 'PATCH',
+    }),
+
 
   updateBooking: (
     id: string,
